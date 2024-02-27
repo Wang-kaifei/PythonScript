@@ -155,13 +155,27 @@ def maxquant_lines_to_pfind(in_path):
 
     return res
 
+def msfragger_to_pfind(in_path):
+    res = []
+    with open(in_path, 'r') as f:
+        ff = f.readlines()
+    for i in range(1, len(ff)):
+        segs = ff[i].strip().split('\t')
+        tmp = segs[0].split('.')
+        tmp[-2] = tmp[-2].lstrip('0')
+        tmp[-3] = tmp[-2]        
+        spec_name = '.'.join(tmp) + ".0.dta"
+        res.append(
+            pFind_PSM(spec_name, tmp[-2], "0", segs[8], "0", segs[2], segs[14], segs[16], "0", "0", "", "3", segs[32], "-",
+                      "-", "target", "0", "0", "0"))
+    return res
 
 trans_dict = {
     "comet": comet_lines_to_pfind,
     "msgf": msgf_lines_to_pfind,
-    "maxquant": maxquant_lines_to_pfind
+    "maxquant": maxquant_lines_to_pfind,
+    "msfragger": msfragger_to_pfind
 }
-
 
 def to_pfind(source_type, in_path, out_path):
     title = "File_Name\tScan_No\tExp_MHplus+\tCharge\tQ_value\tSequence\tCalc_MHplus+\tMass_Shift(Exp.-Calc.)\tRaw_Score\tFinal_Score\tModification\tSpecificity\tProteins\tPositions\tLabel\tTarget\ttMiss_Clv_Sites\tAvg_Frag_Mass_Shift\tOthers\n"
@@ -185,8 +199,8 @@ def to_pfind(source_type, in_path, out_path):
     return 0
 
 if __name__ == "__main__":
-    in_path = "/Users/kaifeiwang/Desktop/trans/origin-two/msms.txt"
-    out_path = "/Users/kaifeiwang/Desktop/trans/origin-two/test.spectra"
+    in_path = r"C:\Users\pFind\Downloads\psm.tsv"
+    out_path = r"C:\Users\pFind\Downloads\test.spectra"
     mgf_folder = "/Users/kaifeiwang/Desktop/mgf/"
-    source_type = "maxquant"  # comet, msgf, maxquant
+    source_type = "msfragger"  # comet, msgf, maxquant, msfragger
     protein = to_pfind(source_type, in_path, out_path)

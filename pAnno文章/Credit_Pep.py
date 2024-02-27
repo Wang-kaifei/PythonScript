@@ -1,5 +1,5 @@
 '''
-Descripttion: 
+Descripttion: 构造可信肽段（至少由两个搜索引擎共同鉴定）
 version: 
 Author: Kaifei
 Date: 2024-01-23 21:43:35

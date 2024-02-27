@@ -11,10 +11,8 @@ import re
 import os
 import sys
 from tqdm import tqdm
-from tqdm_joblib import tqdm_joblib
 import time
 from collections import Counter
-from joblib import Parallel, delayed
 from functools import partial
 import concurrent.futures
 import multiprocessing
@@ -268,7 +266,7 @@ def PartBMPep(BMpfind_path, DBRpfind_path, first_pfind_path, fasta_path, mgf_pat
     print(f"# BM unrec peptides: {len(GetSeqsbyPSM(test_psm))}")
     print(f"# pep dict length: {len(test_pep_specs)}")
     for spec, pep in test_pep_specs.items():
-        if ContainSpec(specs, data_set_specs): # 有谱图存在
+        if ContainSpec(spec, data_set_specs): # 有谱图存在
             cnt2 += 1
         else: # 对应的谱图都被删除
             cnt1 += 1
