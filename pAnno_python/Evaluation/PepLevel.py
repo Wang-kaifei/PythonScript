@@ -29,7 +29,9 @@ def ReadCrePep(input_file):
     """读取可信肽段集"""
     with open(input_file, 'r') as f:
         lines = f.readlines()
-    return set([line.strip() for line in lines])
+    cre_peps = set([line.strip() for line in lines])
+    print(f"credicted_pep cnt: {len(cre_peps)}")
+    return cre_peps
 
 def ReadProSeq(fasta_path):
     """从fasta文件中读取蛋白质序列"""
@@ -106,10 +108,9 @@ def TestOnePep (pep, pros):
             return True
     return False
 
-def ExpectPep(cre_pep_path, anno_pro_path):
+def ExpectPep(cre_pep, anno_pro_path):
     """构造期望被召回的肽段集合，如果可信肽段不被蛋白质覆盖，则为期望召回肽段"""
     exp_pep = set()
-    cre_peps = ReadCrePep(cre_pep_path)
     anno_pros = ReadProSeq(anno_pro_path)
     anno_peps = Digestion(anno_pros) # 已注释库酶切后的肽段
     for cre_pep in cre_peps:
@@ -117,6 +118,7 @@ def ExpectPep(cre_pep_path, anno_pro_path):
             continue
         elif not TestOnePep (cre_pep, anno_pros):
             exp_pep.add(cre_pep)
+    print(f"exp_pep cnt: {len(exp_pep)}")
     return exp_pep
 
 def ReadPSMpFind(pfind_res_path):
@@ -142,20 +144,37 @@ def BuildCreSpec(res_path_list, cre_peps):
                 cre_specs.add(spec)
     return cre_specs
 
-def PepLevleTest(cre_peps, cre_specs, engine_res_path):
-    """肽段层次评测"""
+def WriteCreSpec(out_path, cre_specs):
+    """可信谱图名写出文件"""
+    fout = open(out_path, 'w')
+    for spec in cre_specs:
+        fout.write(spec + "\n")
+    
+def PepLevleTest(exp_peps, cre_specs, engine_res_path):
+    """肽段层次评测
+    期望被召回的肽段, 可信谱图集, 引擎结果路径"""
     psms = ReadPSMpFind(engine_res_path)
     label_peps = set() # 标注集对应到的所有肽段
     for spec, pep in psms.items():
         if spec in cre_specs:
             label_peps.add(pep)
-    tp_pep = label_peps & cre_peps # 被召回的肽段
+    tp_pep = label_peps & exp_peps # 被召回的肽段
     precision = len(tp_pep) / len(label_peps)
-    recall = len(tp_pep) / len(cre_peps)
+    recall = len(tp_pep) / len(exp_peps)
     print(f"the res of {engine_res_path}")
-    print(f"tp_pep: {len(tp_pep)}, label_peps: {len(label_peps)}, cre_peps: {len(cre_peps)}")
+    print(f"tp_pep: {len(tp_pep)}, label_peps: {len(label_peps)}, exp_peps: {len(exp_peps)}")
     print(f"Precision: {precision}, Recall: {recall}")
 
-            
 if __name__ == "__main__":
-    pass
+    pfind_res_path = r"E:\wkf\Ecoli\Evaluation_pep\pFind\pFind-Filtered.spectra"
+    comet_res_path = r"E:\wkf\Ecoli\Evaluation_pep\Comet\comet.spectra"
+    msgf_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MSGF+\msgf.spectra"
+    msfragger_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MSFragger\msfragger.spectra"
+    maxquant_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MaxQuant\maxquant.spectra"
+    cre_pep_path = r"E:\wkf\Ecoli\credible_pep\credible_pep.txt"
+    anno_pro_path = r"E:\wkf\Ecoli\Evaluation_pep\pAnno\reference_db\target_group_pace2.fasta"
+    cre_peps = ReadCrePep(cre_pep_path) # 可信肽段集
+    exp_peps = ExpectPep(cre_peps, anno_pro_path) # 期望被召回的肽段集
+    cre_specs = BuildCreSpec([pfind_res_path, comet_res_path, msgf_res_path, msfragger_res_path, maxquant_res_path], cre_peps) # 可信谱图集
+    WriteCreSpec("/Users/kaifeiwang/Desktop/cre_specs.txt", cre_specs)
+    PepLevleTest(exp_peps, cre_specs, pfind_res_path)
