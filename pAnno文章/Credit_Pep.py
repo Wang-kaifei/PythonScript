@@ -1,27 +1,83 @@
 '''
-Descripttion: 构造可信肽段（至少由两个搜索引擎共同鉴定）
+Descripttion: 
 version: 
 Author: Kaifei
 Date: 2024-01-23 21:43:35
 LastEditors: Kaifei
-LastEditTime: 2024-01-24 23:38:26
+LastEditTime: 2024-02-28 15:47:20
 '''
 # -*- coding: utf-8 -*-
 
 from matplotlib_venn import venn2
 import matplotlib.pyplot as plt
 import seaborn as sns
+import math
+
+ALPHABET_SIZE = 26
+PRIME_SIZE = 500
+m_lfCode = [[0.0 for j in range(PRIME_SIZE)] for i in range(256)]
+aacode = [0, 1, 2, 3, 4, 5, 6, 7, 11, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+prime = [
+		2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,
+		53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,
+		127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,
+		199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,
+		283,293,307,311,313,317,331,337,347,349,353,359,367,373,379,
+		383,389,397,401,409,419,421,431,433,439,443,449,457,461,463,
+		467,479,487,491,499,503,509,521,523,541,547,557,563,569,571,
+		577,587,593,599,601,607,613,617,619,631,641,643,647,653,659,
+		661,673,677,683,691,701,709,719,727,733,739,743,751,757,761,
+		769,773,787,797,809,811,821,823,827,829,839,853,857,859,863,
+		877,881,883,887,907,911,919,929,937,941,947,953,967,971,977,
+		983,991,997,1009,1013,1019,1021,1031,1033,1039,1049,1051,1061,1063,1069,
+		1087,1091,1093,1097,1103,1109,1117,1123,1129,1151,1153,1163,1171,1181,1187,
+		1193,1201,1213,1217,1223,1229,1231,1237,1249,1259,1277,1279,1283,1289,1291,
+		1297,1301,1303,1307,1319,1321,1327,1361,1367,1373,1381,1399,1409,1423,1427,
+		1429,1433,1439,1447,1451,1453,1459,1471,1481,1483,1487,1489,1493,1499,1511,
+		1523,1531,1543,1549,1553,1559,1567,1571,1579,1583,1597,1601,1607,1609,1613,
+		1619,1621,1627,1637,1657,1663,1667,1669,1693,1697,1699,1709,1721,1723,1733,
+		1741,1747,1753,1759,1777,1783,1787,1789,1801,1811,1823,1831,1847,1861,1867,
+		1871,1873,1877,1879,1889,1901,1907,1913,1931,1933,1949,1951,1973,1979,1987,
+		1993,1997,1999,2003,2011,2017,2027,2029,2039,2053,2063,2069,2081,2083,2087,
+		2089,2099,2111,2113,2129,2131,2137,2141,2143,2153,2161,2179,2203,2207,2213,
+		2221,2237,2239,2243,2251,2267,2269,2273,2281,2287,2293,2297,2309,2311,2333,
+		2339,2341,2347,2351,2357,2371,2377,2381,2383,2389,2393,2399,2411,2417,2423,
+		2437,2441,2447,2459,2467,2473,2477,2503,2521,2531,2539,2543,2549,2551,2557,
+		2579,2591,2593,2609,2617,2621,2633,2647,2657,2659,2663,2671,2677,2683,2687,
+		2689,2693,2699,2707,2711,2713,2719,2729,2731,2741,2749,2753,2767,2777,2789,
+		2791,2797,2801,2803,2819,2833,2837,2843,2851,2857,2861,2879,2887,2897,2903,
+		2909,2917,2927,2939,2953,2957,2963,2969,2971,2999,3001,3011,3019,3023,3037,
+		3041,3049,3061,3067,3079,3083,3089,3109,3119,3121,3137,3163,3167,3169,3181,
+		3187,3191,3203,3209,3217,3221,3229,3251,3253,3257,3259,3271,3299,3301,3307,
+		3313,3319,3323,3329,3331,3343,3347,3359,3361,3371,3373,3389,3391,3407,3413,
+		3433,3449,3457,3461,3463,3467,3469,3491,3499,3511,3517,3527,3529,3533,3539,
+		3541,3547,3557,3559,3571
+]
+
+def GodelInitialize():
+    for i in range(256):
+        for j in range(PRIME_SIZE):
+            m_lfCode[i][j] = (i + 1) * math.log(prime[j])
+    return True
+
+def GetGodel(peptide):
+    lfCode = 0.0
+    for i in range(len(peptide)):
+        lfCode += m_lfCode[aacode[ord(peptide[i]) - ord('A')]][i]
+    return lfCode
+"""----------------------------------------------------------------------------------------------"""
 
 def CometPep(res_path):
     seqs = set()
+    codes = set()
     with open(res_path, 'r') as f:
         ff = f.readlines()
-    # 0:scan	1:num	2:charge	3:exp_neutral_mass	4:calc_neutral_mass	5:e-value	6:xcorr	7:delta_cn	8:sp_score	9:ions_matched	10:ions_total	11:plain_peptide	12:modified_peptide	13:prev_aa	14:next_aa	15:protein	16:protein_count	17:modifications	18:retention_time_sec	19:sp_rank	20:Target	21:File	22:q_value
     for i in range(1, len(ff)):
         segs = ff[i].strip().split('\t')
         seqs.add(segs[11])
+        codes.add(GetGodel(segs[11]))
     print(f"Comet: {len(seqs)}")
-    return seqs, "Comet"
+    return seqs, "Comet", codes
 
 def msgf_mod_seq(raw_pep):
     mod_dic = {"+15.995":"Oxidation[M]", "+57.021":"Carbamidomethyl[C]", "-17.027":"Gln->pyro-Glu[AnyN-termQ]", "+42.011":"Acetyl[ProteinN-term]"}
@@ -48,75 +104,98 @@ def msgf_mod_seq(raw_pep):
   
 def MSGFPep(res_path):
     seqs = set()
+    codes = set()
     with open(res_path, 'r') as f:
         ff = f.readlines()
-    # #Spec_file:0	Spec_ID:1	ScanNum:2	Scan_time:3	FragMethod:4	Precursor:5	IsotopeError:6	Precursor_Error:7	charge:8	Peptide:9	Protein:10	DeNovoScore:11	MSGFScore:12	SpecEvalue:13	Evalue:14	target:15	q_value:16
     for i in range(1, len(ff)):    
         segs = ff[i].strip().split('\t')
         seqence, _ = msgf_mod_seq(segs[9])
         seqs.add(seqence)
+        codes.add(GetGodel(seqence))
     print(f"MSGF+: {len(seqs)}")
-    return seqs, "MSGF+"
+    return seqs, "MSGF+", codes
 
 def MaxquantPep(res_path):
     seqs = set()
+    codes = set()
     with open(res_path, 'r') as f:
         ff = f.readlines()
-    # Raw file:0	Scan number:1	Scan index:2	Sequence:3	Length:4	Missed cleavages:5	Modifications:6	Modified sequence:7	Oxidation (M) Probabilities:8	Oxidation (M) Score diffs:9	Acetyl (Protein N-term):10	Gln->pyro-Glu:11	Oxidation (M):12	Proteins:13	Charge:14	Fragmentation:15	Mass analyzer:16	Type:17	Scan event number:18	Isotope index:19	m/z:20	Mass:21	Mass error [ppm]:22	Mass error [Da]:23	Simple mass error [ppm]:24	Retention time:25	PEP:26	Score:27	Delta score:28	Score diff:29	Localization prob:30	Combinatorics:31	PIF:32	Fraction of total spectrum:33	Base peak fraction:34	Precursor full scan number:35	Precursor Intensity:36	Precursor apex fraction:37	Precursor apex offset:38	Precursor apex offset time:39	Matches:40	Intensities:41	Mass deviations [Da]:42	Mass deviations [ppm]:43	Masses:44	Number of matches:45	Intensity coverage:46	Peak coverage:47	Neutral loss level:48	ETD identification type:49	Reverse:50	All scores:51	All sequences:52	All modified sequences:53	Reporter PIF:54	Reporter fraction:55	id:56	Protein group IDs:57	Peptide ID:58	Mod. peptide ID:59	Evidence ID:60	Oxidation (M) site IDs:61
     for i in range(1, len(ff)):
         segs = ff[i].strip().split('\t')
         seqs.add(segs[3])
+        codes.add(GetGodel(segs[3]))
     print(f"Maxquant: {len(seqs)}")
-    return seqs, "Maxquant"
+    return seqs, "Maxquant", codes
 
 def pFindPep(res_path):
     seqs = set()
+    codes = set()
     with open(res_path, 'r') as f:
         ff = f.readlines()
-    # Raw file:0	Scan number:1	Scan index:2	Sequence:3	Length:4	Missed cleavages:5	Modifications:6	Modified sequence:7	Oxidation (M) Probabilities:8	Oxidation (M) Score diffs:9	Acetyl (Protein N-term):10	Gln->pyro-Glu:11	Oxidation (M):12	Proteins:13	Charge:14	Fragmentation:15	Mass analyzer:16	Type:17	Scan event number:18	Isotope index:19	m/z:20	Mass:21	Mass error [ppm]:22	Mass error [Da]:23	Simple mass error [ppm]:24	Retention time:25	PEP:26	Score:27	Delta score:28	Score diff:29	Localization prob:30	Combinatorics:31	PIF:32	Fraction of total spectrum:33	Base peak fraction:34	Precursor full scan number:35	Precursor Intensity:36	Precursor apex fraction:37	Precursor apex offset:38	Precursor apex offset time:39	Matches:40	Intensities:41	Mass deviations [Da]:42	Mass deviations [ppm]:43	Masses:44	Number of matches:45	Intensity coverage:46	Peak coverage:47	Neutral loss level:48	ETD identification type:49	Reverse:50	All scores:51	All sequences:52	All modified sequences:53	Reporter PIF:54	Reporter fraction:55	id:56	Protein group IDs:57	Peptide ID:58	Mod. peptide ID:59	Evidence ID:60	Oxidation (M) site IDs:61
     for i in range(1, len(ff)):
         segs = ff[i].strip().split('\t')
         seqs.add(segs[5])
+        codes.add(GetGodel(segs[5]))
     print(f"pFind: {len(seqs)}")
-    return seqs, "pFind"
+    return seqs, "pFind", codes
 
 def MSFraggerPep(res_path):
     seqs = set()
+    codes = set()
     with open(res_path, 'r') as f:
         ff = f.readlines()
-    # Raw file:0	Scan number:1	Scan index:2	Sequence:3	Length:4	Missed cleavages:5	Modifications:6	Modified sequence:7	Oxidation (M) Probabilities:8	Oxidation (M) Score diffs:9	Acetyl (Protein N-term):10	Gln->pyro-Glu:11	Oxidation (M):12	Proteins:13	Charge:14	Fragmentation:15	Mass analyzer:16	Type:17	Scan event number:18	Isotope index:19	m/z:20	Mass:21	Mass error [ppm]:22	Mass error [Da]:23	Simple mass error [ppm]:24	Retention time:25	PEP:26	Score:27	Delta score:28	Score diff:29	Localization prob:30	Combinatorics:31	PIF:32	Fraction of total spectrum:33	Base peak fraction:34	Precursor full scan number:35	Precursor Intensity:36	Precursor apex fraction:37	Precursor apex offset:38	Precursor apex offset time:39	Matches:40	Intensities:41	Mass deviations [Da]:42	Mass deviations [ppm]:43	Masses:44	Number of matches:45	Intensity coverage:46	Peak coverage:47	Neutral loss level:48	ETD identification type:49	Reverse:50	All scores:51	All sequences:52	All modified sequences:53	Reporter PIF:54	Reporter fraction:55	id:56	Protein group IDs:57	Peptide ID:58	Mod. peptide ID:59	Evidence ID:60	Oxidation (M) site IDs:61
     for i in range(1, len(ff)):
         segs = ff[i].strip().split('\t')
         seqs.add(segs[0])
+        codes.add(GetGodel(segs[0]))
     print(f"MSFragger: {len(seqs)}")
-    return seqs, "MSFragger"
+    return seqs, "MSFragger", codes
 
+def GetCredCodes(code1, code2, code3, code4, code5):
+    inter12 = code1 & code2
+    inter13 = code1 & code3
+    inter14 = code1 & code4
+    inter15 = code1 & code5
+    inter23 = code2 & code3
+    inter24 = code2 & code4
+    inter25 = code2 & code5
+    inter34 = code3 & code4
+    inter35 = code3 & code5
+    inter45 = code4 & code5
+    #求并集
+    union = inter12 | inter13 | inter14 | inter15 | inter23 | inter24 | inter25 | inter34 | inter35 | inter45
+    print(f"Credible pep-code: {len(union)}")
+    return union
+    
 def Get1idPep(pep1, pep2, pep3, pep4, pep5):
     """得到至少1个引擎鉴定的肽段"""
     union = pep1 | pep2 | pep3 | pep4 | pep5
     print(f"1id pep: {len(union)}")
     return union
 
-def GetCredPep(pep1, pep2, pep3, pep4, pep5):
-    """从5个肽段集合中得到可信肽段"""
-    inter12 = pep1 & pep2
-    inter13 = pep1 & pep3
-    inter14 = pep1 & pep4
-    inter15 = pep1 & pep5
-    inter23 = pep2 & pep3
-    inter24 = pep2 & pep4
-    inter25 = pep2 & pep5
-    inter34 = pep3 & pep4
-    inter35 = pep3 & pep5
-    inter45 = pep4 & pep5
-    #求并集
-    union = inter12 | inter13 | inter14 | inter15 | inter23 | inter24 | inter25 | inter34 | inter35 | inter45
-    print(f"Credible pep: {len(union)}")
+def GetCredPep(pep1, pep2, pep3, pep4, pep5, outpath, cre_code):
+    cre_peps = set()
+    for pep in pep1:
+        if GetGodel(pep) in cre_code:
+            cre_peps.add(pep)
+    for pep in pep2:
+        if GetGodel(pep) in cre_code:
+            cre_peps.add(pep)
+    for pep in pep3:
+        if GetGodel(pep) in cre_code:
+            cre_peps.add(pep)
+    for pep in pep4:
+        if GetGodel(pep) in cre_code:
+            cre_peps.add(pep)
+    for pep in pep5:
+        if GetGodel(pep) in cre_code:
+            cre_peps.add(pep)
+    print(f"Credible pep: {len(cre_peps)}")
     # 将pep写出
-    with open("credible_pep.txt", 'w') as f:
-        for i in union:
+    with open(outpath, 'w') as f:
+        for i in cre_peps:
             f.write(i + '\n')
-    return union
+    return cre_peps
 
 def Get3idPep(pep1, pep2, pep3, pep4, pep5):
     """得到至少3个引擎鉴定的肽段"""
@@ -153,45 +232,45 @@ def Get5idPep(pep1, pep2, pep3, pep4, pep5):
     print(f"5id pep: {len(inter12345)}")
     return inter12345
     
-def Draw(set1, set2, set3, set4, set5):
-    # 创建子图对象和绘图的布局
-    fig, ax = plt.subplots(nrows=2, ncols=5)
-    fig.set_size_inches(18, 8)
-    # 定义集合和标签的对应关系
-    set_labels = {
-        (0, 0): (set1[1], set2[1]),
-        (0, 1): (set1[1], set3[1]),
-        (0, 2): (set1[1], set4[1]),
-        (0, 3): (set1[1], set5[1]),
-        (0, 4): (set2[1], set3[1]),
-        (1, 0): (set2[1], set4[1]),
-        (1, 1): (set2[1], set5[1]),
-        (1, 2): (set3[1], set4[1]),
-        (1, 3): (set3[1], set5[1]),
-        (1, 4): (set4[1], set5[1])
-    }
-    tmp_sets = [set1, set2, set3, set4, set5]
-    row = 0
-    col = 0
-    for i in range(5):
-        for j in range(i+1, 5):
-            current_labels = set_labels[(row, col)]
-            venn_diagram = venn2([tmp_sets[i][0], tmp_sets[j][0]], set_labels=current_labels, ax=ax[row][col])
-            ax[row][col].set_title('{} vs. {}'.format(*current_labels), fontsize=16)
-            for label in venn_diagram.set_labels:
-                label.set_fontsize(14)  # 设置集合名字体大小
-            for label in ax[row][col].texts:  # 遍历每个子图中的文本
-                label.set_fontsize(14)  # 设置文本字体大小
-            col += 1
-            if col == 5:
-                row += 1
-                col = 0
-    # 调整子图之间的间距
-    plt.subplots_adjust(hspace=0.4, wspace=0.25)
-    # 保存高分辨率图片
-    plt.savefig('venn_diagrams.png', format='png', dpi=300, bbox_inches='tight')  # 保存为高分辨率的图片
-    # 显示图形
-    plt.show()
+# def Draw(set1, set2, set3, set4, set5):
+#     # 创建子图对象和绘图的布局
+#     fig, ax = plt.subplots(nrows=2, ncols=5)
+#     fig.set_size_inches(18, 8)
+#     # 定义集合和标签的对应关系
+#     set_labels = {
+#         (0, 0): (set1[1], set2[1]),
+#         (0, 1): (set1[1], set3[1]),
+#         (0, 2): (set1[1], set4[1]),
+#         (0, 3): (set1[1], set5[1]),
+#         (0, 4): (set2[1], set3[1]),
+#         (1, 0): (set2[1], set4[1]),
+#         (1, 1): (set2[1], set5[1]),
+#         (1, 2): (set3[1], set4[1]),
+#         (1, 3): (set3[1], set5[1]),
+#         (1, 4): (set4[1], set5[1])
+#     }
+#     tmp_sets = [set1, set2, set3, set4, set5]
+#     row = 0
+#     col = 0
+#     for i in range(5):
+#         for j in range(i+1, 5):
+#             current_labels = set_labels[(row, col)]
+#             venn_diagram = venn2([tmp_sets[i][0], tmp_sets[j][0]], set_labels=current_labels, ax=ax[row][col])
+#             ax[row][col].set_title('{} vs. {}'.format(*current_labels), fontsize=16)
+#             for label in venn_diagram.set_labels:
+#                 label.set_fontsize(14)  # 设置集合名字体大小
+#             for label in ax[row][col].texts:  # 遍历每个子图中的文本
+#                 label.set_fontsize(14)  # 设置文本字体大小
+#             col += 1
+#             if col == 5:
+#                 row += 1
+#                 col = 0
+#     # 调整子图之间的间距
+#     plt.subplots_adjust(hspace=0.4, wspace=0.25)
+#     # 保存高分辨率图片
+#     plt.savefig('venn_diagrams.png', format='png', dpi=300, bbox_inches='tight')  # 保存为高分辨率的图片
+#     # 显示图形
+#     plt.show()
 
 def DrawCol():
     """输入是一个4 * 5的矩阵"""
@@ -224,22 +303,26 @@ def DrawCol():
     plt.show()    
     
 if __name__ == "__main__":
-    comet_path = r"E:\wkf\yeast\credible_pep\Comet\res\result.txtfilter"
-    msgf_path = r"E:\wkf\yeast\credible_pep\MSGF+\tsv\all_result.tsvfilter"
-    maxquant_path = r"E:\wkf\yeast\credible_pep\MaxQuant\combined\txt\msms.txt"
-    pFind_path = r"E:\wkf\yeast\credible_pep\pFind\pFind-Filtered.spectra"
-    msfragger_path = r"E:\wkf\yeast\credible_pep\MSFragger\peptide.tsv"
-    comet_pep, comet_name = CometPep(comet_path)
-    msgf_pep, msgf_name = MSGFPep(msgf_path)
-    maxquant_pep, maxquant_name = MaxquantPep(maxquant_path)
-    pfind_pep, pfind_name = pFindPep(pFind_path)
-    msfragger_pep, msfragger_name = MSFraggerPep(msfragger_path)
+    GodelInitialize()
+    comet_path = r"E:\wkf\Ecoli\credible_pep\Comet\res\result.txtfilter"
+    msgf_path = r"E:\wkf\Ecoli\credible_pep\MSGF+\tsv\all_result.tsvfilter"
+    maxquant_path = r"E:\wkf\Ecoli\credible_pep\MaxQuant\combined\txt\msms.txt"
+    pFind_path = r"E:\wkf\Ecoli\credible_pep\pFind\pFind-Filtered.spectra"
+    msfragger_path = r"E:\wkf\Ecoli\credible_pep\MSFragger\peptide.tsv"
+    outpath = r"E:\wkf\Ecoli\credible_pep\credible_pep.txt"
+    comet_pep, comet_name, comet_code = CometPep(comet_path)
+    msgf_pep, msgf_name, msgf_code = MSGFPep(msgf_path)
+    maxquant_pep, maxquant_name, maxquant_code = MaxquantPep(maxquant_path)
+    pfind_pep, pfind_name, pfind_code = pFindPep(pFind_path)
+    msfragger_pep, msfragger_name, msfragger_code = MSFraggerPep(msfragger_path)
+    cre_code = GetCredCodes(comet_code, msgf_code, maxquant_code, pfind_code, msfragger_code) # 可信肽段的编码
+    
     # 画韦恩图
     # Draw([comet_pep, comet_name], [msgf_pep, msgf_name], [maxquant_pep, maxquant_name], [pfind_pep, pfind_name], [msfragger_pep, msfragger_name])
     # Get1idPep(comet_pep, msgf_pep, maxquant_pep, pfind_pep, msfragger_pep)
     # 得到可信肽段
-    # GetCredPep(comet_pep, msgf_pep, maxquant_pep, pfind_pep, msfragger_pep)
+    GetCredPep(comet_pep, msgf_pep, maxquant_pep, pfind_pep, msfragger_pep, outpath, cre_code)
     # Get3idPep(comet_pep, msgf_pep, maxquant_pep, pfind_pep, msfragger_pep)
     # Get4idPep(comet_pep, msgf_pep, maxquant_pep, pfind_pep, msfragger_pep)
     # Get5idPep(comet_pep, msgf_pep, maxquant_pep, pfind_pep, msfragger_pep)
-    DrawCol()
+    # DrawCol()

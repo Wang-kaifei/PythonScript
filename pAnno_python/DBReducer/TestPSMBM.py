@@ -410,7 +410,7 @@ def GetInterPep(full_pep, full_codes, test_codes):
 def PepLevTest(BM_path, fir_path, sec_path, retainedDB_path):
     retain_pros = ReadProSeq(retainedDB_path) # 模拟已注释库蛋白质序列
     psm_r0, bm_code = ReadPSM(BM_path) # 全部已解析的谱图
-    fir_psms, fir_code = ReadPSM(fir_path)
+    fir_psms, fir_code = ReadPSM(fir_path) # 第一轮搜索结果
     sec_psms, sec_code = ReadPSM(sec_path)
     psm_r1 = FullPSMPart(retain_pros, psm_r0, set(fir_code.values())) # 全集中未被模拟已注释库覆盖到的PSM（待召回部分）
     part2bm = GetPepUncover(psm_r1, bm_code, set(fir_code.values())) # 待召回的肽段
