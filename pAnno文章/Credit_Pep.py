@@ -4,7 +4,7 @@ version:
 Author: Kaifei
 Date: 2024-01-23 21:43:35
 LastEditors: Kaifei
-LastEditTime: 2024-02-28 15:47:20
+LastEditTime: 2024-02-29 16:56:37
 '''
 # -*- coding: utf-8 -*-
 
@@ -12,6 +12,7 @@ from matplotlib_venn import venn2
 import matplotlib.pyplot as plt
 import seaborn as sns
 import math
+from tqdm import tqdm
 
 ALPHABET_SIZE = 26
 PRIME_SIZE = 500
@@ -166,7 +167,37 @@ def GetCredCodes(code1, code2, code3, code4, code5):
     union = inter12 | inter13 | inter14 | inter15 | inter23 | inter24 | inter25 | inter34 | inter35 | inter45
     print(f"Credible pep-code: {len(union)}")
     return union
-    
+
+def ReadPSM(pfind_res_path):
+    res = {} # spec 2 pep
+    pep2code = {} # pep to godel code
+    with open(pfind_res_path, 'r') as f:
+        lines = f.readlines()
+    del lines[0]
+    for line in tqdm(lines, ascii=True):
+        segs = line.strip().split('\t')
+        if float(segs[4]) >= 0.01 or len(segs) < 6:
+            break
+        res[segs[0].strip()] = segs[5].strip()
+        pep2code[segs[5].strip()] = GetGodel(segs[5].strip())
+    return res, pep2code
+
+def BuildCreSpec(res_path_list, cre_pepcodes):
+    """构造可信谱图集"""
+    cre_specs = set()
+    for path in res_path_list: # 读取所有引擎的结果
+        psms, pep2code = ReadPSM(path)
+        for spec, pep in psms.items(): # 存储可信肽段对应到的谱图
+            if pep2code[pep] in cre_pepcodes:
+                cre_specs.add(spec)
+    return cre_specs
+
+def WriteCreSpec(out_path, cre_specs):
+    """可信谱图名写出文件"""
+    fout = open(out_path, 'w')
+    for spec in cre_specs:
+        fout.write(spec + "\n")
+        
 def Get1idPep(pep1, pep2, pep3, pep4, pep5):
     """得到至少1个引擎鉴定的肽段"""
     union = pep1 | pep2 | pep3 | pep4 | pep5
