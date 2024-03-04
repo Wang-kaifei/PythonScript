@@ -5,9 +5,9 @@ Created on Thu Jan  7 11:18:19 2021
 
 @author: kaifeiwang
 """
-"""肽段鉴定层次的评测脚本
-1. 构造待召回肽段集。遍历可信肽段集，判断肽段是否能对应到保留蛋白质，如果不能则该肽段判定为待召回。
-2. 构造可信谱图集。每个引擎各写一个函数，如果该PSM对应到的肽段是可信肽段，则谱图被判定为可信谱图。 注意，这里的可信谱图集是全局的，全部引擎通用
+"""肽段鉴定层次的评测脚本，各引擎内部结果独立评测
+1. 各引擎分别提取可信肽段（0.1%FDR, 搜索已注释库），为待召回肽段
+2. 各引擎构造可信谱图集（在提取可信肽段时就存储）
 3. 构造标注集。引擎的鉴定结果，只有可信谱图对应的PSM，才被视为标注集成员，参与到评测
 4. 评测。对于每一个引擎，计算其召回率、精确率
     precision = 标注集肽段∩待召回肽段 / 标注集肽段数
@@ -24,6 +24,7 @@ import concurrent.futures
 import multiprocessing
 import ahocorasick
 import math
+
 ALPHABET_SIZE = 26
 PRIME_SIZE = 500
 m_lfCode = [[0.0 for j in range(PRIME_SIZE)] for i in range(256)]
@@ -77,14 +78,6 @@ def GetGodel(peptide):
         lfCode += m_lfCode[aacode[ord(peptide[i]) - ord('A')]][i]
     return lfCode
 """----------------------------------------------------------------------------------------------"""
-
-def ReadCrePep(input_file):
-    """读取可信肽段集"""
-    with open(input_file, 'r') as f:
-        lines = f.readlines()
-    cre_peps = set([line.strip() for line in lines])
-    print(f"credicted_pep cnt: {len(cre_peps)}")
-    return cre_peps
 
 def Pep2Codes(peps):
     """生成肽段的Godel编码"""
@@ -168,7 +161,7 @@ def TestOnePep (pep, pros):
             return True
     return False
 
-def ExpectPep(cre_pep, anno_pros, anno_peps_dig):
+def ExpectPep(cre_peps, anno_pros, anno_peps_dig):
     """构造期望被召回的肽段集合，如果可信肽段不被蛋白质覆盖，则为期望召回肽段"""
     exp_pep = set()
     for cre_pep in cre_peps:
@@ -179,37 +172,21 @@ def ExpectPep(cre_pep, anno_pros, anno_peps_dig):
     print(f"exp_pep cnt: {len(exp_pep)}")
     return exp_pep
 
-def ReadPSM(pfind_res_path):
-    res = {} # spec 2 pep
+def ReadPSM(pfind_res_path, threshold = 0.001):
+    spec2pep = {} # spec 2 pep
     pep2code = {} # pep to godel code
     with open(pfind_res_path, 'r') as f:
         lines = f.readlines()
     del lines[0]
     for line in tqdm(lines, ascii=True):
         segs = line.strip().split('\t')
-        if float(segs[4]) >= 0.01 or len(segs) < 6:
+        if float(segs[4]) >= threshold or len(segs) < 6:
             break
-        res[segs[0].strip()] = segs[5].strip()
+        spec2pep[segs[0].strip()] = segs[5].strip()
         pep2code[segs[5].strip()] = GetGodel(segs[5].strip())
-    return res, pep2code
-
-def BuildCreSpec(res_path_list, cre_pepcodes):
-    """构造可信谱图集"""
-    cre_specs = set()
-    for path in res_path_list: # 读取所有引擎的结果
-        psms, pep2code = ReadPSM(path)
-        for spec, pep in psms.items(): # 存储可信肽段对应到的谱图
-            if pep2code[pep] in cre_pepcodes:
-                cre_specs.add(spec)
-    return cre_specs
-
-def WriteCreSpec(out_path, cre_specs):
-    """可信谱图名写出文件"""
-    fout = open(out_path, 'w')
-    for spec in cre_specs:
-        fout.write(spec + "\n")
+    return spec2pep, pep2code
     
-def PepLevleTest(exp_peps, cre_specs, engine_res_path, anno_pros, anno_peps_dig):
+def PepLevleTestpFind(exp_peps, cre_specs, engine_res_path, anno_pros, anno_peps_dig):
     """肽段层次评测
     期望被召回的肽段, 可信谱图集, 引擎结果路径"""
     psms, pep2code = ReadPSM(engine_res_path)
@@ -225,8 +202,10 @@ def PepLevleTest(exp_peps, cre_specs, engine_res_path, anno_pros, anno_peps_dig)
         elif not TestOnePep (pep, anno_pros):
             pre_ud_pep.add(pep)
     tp_pep_cnt = 0
+    recall_code = set()
     for test_pep in label_peps:
         if pep2code[test_pep] in exp_codes:
+            recall_code.add(pep2code[test_pep])
             tp_pep_cnt += 1
     # 错误的PSM写出文件
     with open(engine_res_path.rsplit('.', 1)[0] + "_wrong.txt", 'w') as f:
@@ -234,27 +213,85 @@ def PepLevleTest(exp_peps, cre_specs, engine_res_path, anno_pros, anno_peps_dig)
             if spec in cre_specs and pep in pre_ud_pep and pep2code[pep] not in exp_codes:
                 f.write(f"{spec}\t{pep}\n")
     precision = tp_pep_cnt / len(pre_ud_pep)
-    recall = tp_pep_cnt / len(exp_peps)
+    recall = len(recall_code) / len(exp_codes)
     print(f"the res of {engine_res_path}")
     print(f"tp_pep: {tp_pep_cnt}, pre_ud_pep: {len(pre_ud_pep)}, exp_peps: {len(exp_peps)}")
     print(f"Precision: {precision}, Recall: {recall}")
-
+        
+def PepLevleTest(cre_peps, cre_specs, engine_res_path, psms, pep2code):
+    """肽段层次评测
+    期望被召回的肽段, 可信谱图集, 引擎结果路径"""
+    exp_codes = set(Pep2Codes(cre_peps).values()) # 期望被召回的肽段的Godel编码
+    label_peps = set() # 标注集对应到的所有肽段
+    for spec, pep in psms.items():
+        if spec in cre_specs:
+            label_peps.add(pep)
+    label_codes = set(Pep2Codes(label_peps).values()) # 标注集对应到的所有godel code
+    recall_codes = set() # 被召回的code
+    recall_peps = set() # 被召回的肽段
+    for test_pep in label_peps:
+        if pep2code[test_pep] in exp_codes:
+            recall_codes.add(pep2code[test_pep])
+            recall_peps.add(test_pep)    
+    # 错误的PSM写出文件
+    with open(engine_res_path.rsplit('.', 1)[0] + "_wrong.txt", 'w') as f:
+        for spec, pep in psms.items():
+            if spec in cre_specs and pep in label_peps and pep2code[pep] not in exp_codes:
+                f.write(f"{spec}\t{pep}\n")
+    precision = len(recall_codes) / len(label_codes)
+    recall_code_level = len(recall_codes) / len(exp_codes)
+    recall_pep_level = len(label_peps & cre_peps) / len(cre_peps)
+    print(f"recall_pep_level: {recall_pep_level}")
+    print(f"the res of {engine_res_path}")
+    print(f"#tp codes: {len(recall_codes)}, labeled codes: {len(label_codes)}, labeled_peps: {len(label_peps)}, cre_peps: {len(cre_peps)}")
+    print(f"Precision: {precision}, Recall_code_level: {recall_code_level}")
+    
+    
+    
+#ECOLI
+    # pfind_res_path = r"E:\wkf\Ecoli\Evaluation_pep\pFind\pFind-Filtered.spectra"
+    # comet_res_path = r"E:\wkf\Ecoli\Evaluation_pep\Comet\comet.spectra"
+    # msgf_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MSGF+\msgf.spectra"
+    # msfragger_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MSFragger\msfragger.spectra"
+    # maxquant_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MaxQuant\maxquant.spectra"
+    # pAnno_res_path1 = r"E:\wkf\Ecoli\Evaluation_pep\pAnno\output\pFind_res1\pFind-Filtered.spectra"
+    # pAnno_res_path2 = r"E:\wkf\Ecoli\Evaluation_pep\pAnno\output\pFind_res2\pFind-Filtered.spectra"
+    # anno_pro_path = r"E:\wkf\Ecoli\Evaluation_pep\pAnno\reference_db\target_group_pace2.fasta"
+    # #############################################################################################
+    # pfind_cre_path = r"E:\wkf\Ecoli\credible_pep\pFind\pFind-Filtered.spectra"
+    # comet_cre_path = r"E:\wkf\Ecoli\credible_pep\Comet\res\comet.spectra"
+    # msgf_cre_path = r"E:\wkf\Ecoli\credible_pep\MSGF+\msgf.spectra"
+    # msfragger_cre_path = r"E:\wkf\Ecoli\credible_pep\MSFragger\msfragger.spectra"
+    # maxquant_cre_path = r"E:\wkf\Ecoli\credible_pep\MaxQuant\maxquant.spectra"
+    
 if __name__ == "__main__":
     GodelInitialize()
-    pfind_res_path = r"E:\wkf\yeast\Evaluation_pep\pFind\pFind-Filtered.spectra"
-    comet_res_path = r"E:\wkf\yeast\Evaluation_pep\Comet\comet.spectra"
-    msgf_res_path = r"E:\wkf\yeast\Evaluation_pep\MSGF+\msgf.spectra"
-    msfragger_res_path = r"E:\wkf\yeast\Evaluation_pep\MSFragger\msfragger.spectra"
-    maxquant_res_path = r"E:\wkf\yeast\Evaluation_pep\MaxQuant\maxquant.spectra"
-    pAnno_res_path = r"E:\wkf\yeast\Evaluation_pep\pAnno\output\pFind_res2\pFind-Filtered.spectra"
-    cre_pep_path = r"E:\wkf\yeast\credible_pep\credible_pep.txt"
-    anno_pro_path = r"E:\wkf\yeast\Evaluation_pep\pAnno\reference_db\target_group_pace2.fasta"
+    pfind_res_path = r"E:\wkf\Ecoli\Evaluation_pep\pFind\pFind-Filtered.spectra"
+    comet_res_path = r"E:\wkf\Ecoli\Evaluation_pep\Comet\comet.spectra"
+    msgf_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MSGF+\msgf.spectra"
+    msfragger_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MSFragger\msfragger.spectra"
+    maxquant_res_path = r"E:\wkf\Ecoli\Evaluation_pep\MaxQuant\maxquant.spectra"
+    pAnno_res_path1 = r"E:\wkf\Ecoli\Evaluation_pep\pAnno\output\pFind_res1\pFind-Filtered.spectra"
+    pAnno_res_path2 = r"E:\wkf\Ecoli\Evaluation_pep\pAnno\output\pFind_res2\pFind-Filtered.spectra"
+    anno_pro_path = r"E:\wkf\Ecoli\Evaluation_pep\pAnno\reference_db\target_group_pace2.fasta"
+    #############################################################################################
+    pfind_cre_path = r"E:\wkf\Ecoli\credible_pep\pFind\pFind-Filtered.spectra"
+    comet_cre_path = r"E:\wkf\Ecoli\credible_pep\Comet\res\comet.spectra"
+    msgf_cre_path = r"E:\wkf\Ecoli\credible_pep\MSGF+\msgf.spectra"
+    msfragger_cre_path = r"E:\wkf\Ecoli\credible_pep\MSFragger\msfragger.spectra"
+    maxquant_cre_path = r"E:\wkf\Ecoli\credible_pep\MaxQuant\maxquant.spectra"
+    cre_path_list = [pfind_cre_path, comet_cre_path, msgf_cre_path, msfragger_cre_path, maxquant_cre_path]
+    res_path_list = [pfind_res_path, comet_res_path, msgf_res_path, msfragger_res_path, maxquant_res_path]
     anno_pros = ReadProSeq(anno_pro_path) # 已注释库蛋白质序列
     anno_peps_dig = Digestion(anno_pros) # 已注释库酶切后的肽段
-    cre_peps = ReadCrePep(cre_pep_path) # 可信肽段集
-    cre_pep2codes = Pep2Codes(cre_peps) # 可信肽段的Godel编码
-    exp_peps = ExpectPep(cre_peps, anno_pros, anno_peps_dig) # 期望被召回的肽段集
-    cre_specs = BuildCreSpec([pfind_res_path, comet_res_path, msgf_res_path, msfragger_res_path, maxquant_res_path], set(cre_pep2codes.values())) # 可信谱图集
-    WriteCreSpec(r"E:\wkf\yeast\credible_pep\cre_specs.txt", cre_specs)
-    for path in [pfind_res_path, comet_res_path, msgf_res_path, msfragger_res_path, maxquant_res_path, pAnno_res_path]:
-        PepLevleTest(exp_peps, cre_specs, path, anno_pros, anno_peps_dig)
+    for i in range(len(cre_path_list)):
+        cre_psm, _ = ReadPSM(cre_path_list[i], 0.001) # 标注集
+        psms, pep2code = ReadPSM(res_path_list[i], 0.01) # 评测结果
+        PepLevleTest(set(cre_psm.values()), set(cre_psm.keys()), res_path_list[i], psms, pep2code)
+    # pAnno的结果，需要综合两轮搜索结果
+    cre_psm_pfind, _ = ReadPSM(pfind_cre_path, 0.001) # 标注集
+    psm1, pep2code1 = ReadPSM(pAnno_res_path1, 0.01) # 评测结果(第一轮)
+    psm2, pep2code2 = ReadPSM(pAnno_res_path2, 0.01) # 评测结果(第二轮)
+    psm2.update(psm1)
+    pep2code2.update(pep2code1)
+    PepLevleTest(set(cre_psm_pfind.values()), set(cre_psm_pfind.keys()), pAnno_res_path1, psm2, pep2code2)

@@ -1,13 +1,16 @@
+'''
+Descripttion: 
+version: 
+Author: Kaifei
+Date: 2024-01-25 17:15:11
+LastEditors: Kaifei
+LastEditTime: 2024-03-04 20:26:26
+'''
 # -*- coding: utf-8 -*-
 # @author Wang kaifei
 
-"""思路：
-1. 得到path下的所有文件名，遍历每个文件
-2. 单个文件的处理：S开头的行是这个谱图的起始tag，只需要作为flag即可，这一行和下一行都不需要具体的处理；
-   之后的行是肽段行，segs[13]是蛋白质描述块，需要修改。分割符是;如果分隔后list的长度==4，则需要修改。
-   每个谱图只保留第一个肽段
-   
-   问题：蛋白质描述不一定是segs[13]，因为可能有很多蛋白质，所有有;的seg都应该被考虑"""
+"""简化.res文件，只保留排名第一的，以减轻内存的负担
+"""
 import sys
 import os
 from tqdm import tqdm
